@@ -13,14 +13,14 @@ int main(int argc, char **argv){
   //=========================================================================
 
   // Background parameters
-  //double h           = 0.67;
-  double h           = 0.7;
+  double h           = 0.67;
+  //double h           = 0.7;
   double OmegaB      = 0.05;
-  //double OmegaCDM    = 0.267;
-  double OmegaCDM    = 0.45;
+  double OmegaCDM    = 0.267;
+  //double OmegaCDM    = 0.45;
   double OmegaK      = 0.0;
-  //double Neff        = 3.046;
-  double Neff        = 0.0;
+  double Neff        = 3.046;
+  //double Neff        = 0.0;
   double TCMB        = 2.7255;
 
   // Recombination parameters
@@ -83,7 +83,7 @@ int main(int argc, char **argv){
   pert.output(kvalue, "perturbations_k0.001.txt");
   
   // Remove when module is completed
-  return 0;
+  //return 0;
   
   //=========================================================================
   // Module IV

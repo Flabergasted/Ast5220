@@ -21,7 +21,7 @@ void Perturbations::solve(){
   integrate_perturbations();
 
   // Compute source functions and spline the result
-  //compute_source_functions();
+  compute_source_functions();
 }
 
 //====================================================
@@ -58,6 +58,8 @@ void Perturbations::integrate_perturbations(){
   Vector2D Theta_0_arr(n_x,Vector(n_k, 0.0));
   Vector2D Theta_1_arr(n_x,Vector(n_k, 0.0));
   Vector2D Theta_2_arr(n_x,Vector(n_k, 0.0));
+
+  Vector2D Theta_3_arr(n_x,Vector(n_k, 0.0));
 
   // Loop over all wavenumbers
   for(int ik = 0; ik < n_k; ik++){
@@ -120,27 +122,6 @@ void Perturbations::integrate_perturbations(){
     ode.solve(dydx_full, x_arr_full, y_full_ic);
     auto y_full = ode.get_data();
 
-    //===================================================================
-    // TODO: remember to store the data found from integrating so we can
-    // spline it below
-    //
-    // To compute a 2D spline of a function f(x,k) the data must be given 
-    // to the spline routine as a 1D array f_array with the points f(ix, ik) 
-    // stored as f_array[ix + n_x * ik]
-    // Example:
-    // Vector x_array(n_x);
-    // Vector k_array(n_k);
-    // Vector f(n_x * n_k);
-    // Spline2D y_spline;
-    // f_spline.create(x_array, k_array, f_array);
-    // We can now use the spline as f_spline(x, k)
-    //
-    // NB: If you use Theta_spline then you have to allocate it first,
-    // before using it e.g.
-    // Theta_spline = std::vector<Spline2D>(n_ell_theta);
-    //
-    //===================================================================
-    //...
     for(int ix = 0; ix < n_x; ix++){
       // Outside tight coupling
       if (ix < x_low){
@@ -159,7 +140,7 @@ void Perturbations::integrate_perturbations(){
                                 *Theta_1_arr[ix][ik];
         Psi_arr[ix][ik]       = -Phi_arr[ix][ik]-12.*cosmo->get_H0()*cosmo->get_H0()
                                 /(std::pow(Constants.c*k*a,2.))
-                                *(OmegaR*Theta_2_arr[ix][ik]);
+                                *(OmegaR*Theta_2_arr[ix][ik]);                      
       }
       else {
         double a = exp(x_arr_full[ix-x_low]);
@@ -238,14 +219,14 @@ Vector Perturbations::set_ic(const double x, const double k) const{
   // ...
   const double c            = Constants.c;
   const double Hp_of_x      = cosmo->Hp_of_x(x);
-  const double dHp_of_x     = cosmo->dHpdx_of_x(x);
-  const double H0           = cosmo->get_H0();
-  const double OmegaCDM     = cosmo->get_OmegaCDM();
-  const double OmegaB       = cosmo->get_OmegaB();
-  const double OmegaR  = cosmo->get_OmegaR();
-  const double dtaudx       = rec->dtaudx_of_x(x);
-  const double ddtauddx     = rec->ddtauddx_of_x(x);
-  double a = exp(x);
+  //const double dHp_of_x     = cosmo->dHpdx_of_x(x);
+  //const double H0           = cosmo->get_H0();
+  //const double OmegaCDM     = cosmo->get_OmegaCDM();
+  //const double OmegaB       = cosmo->get_OmegaB();
+  //const double OmegaR  = cosmo->get_OmegaR();
+  //const double dtaudx       = rec->dtaudx_of_x(x);
+  //const double ddtauddx     = rec->ddtauddx_of_x(x);
+  //double a = exp(x);
 
   // SET: Scalar quantities (Gravitational potential, baryons and CDM)
   // ...
@@ -414,10 +395,17 @@ void Perturbations::compute_source_functions(){
   //=============================================================================
   // TODO: Make the x and k arrays to evaluate over and use to make the splines
   //=============================================================================
-  // ...
-  // ...
-  Vector k_array;
-  Vector x_array;
+  //Vector k_array;
+  //Vector x_array;
+  Vector k_array(n_k);
+  Vector x_array = Utils::linspace(x_start, x_end, n_x);
+  const double c = Constants.c;
+  // Set up a logaritmic linspace
+  Vector log_k_array = Utils::linspace(log(k_min), log(k_max), n_k);
+  // Loop through and perform the exponential of each wich should give logarithmic spacing.
+  for (int ik = 0; ik < n_k; ik++) {
+    k_array[ik] = exp(log_k_array[ik]);
+  }
 
   // Make storage for the source functions (in 1D array to be able to pass it to the spline)
   Vector ST_array(k_array.size() * x_array.size());
@@ -437,26 +425,55 @@ void Perturbations::compute_source_functions(){
       // TODO: Compute the source functions
       //=============================================================================
       // Fetch all the things we need...
-      const double Hp       = cosmo->Hp_of_x(x);
-      const double tau      = rec->tau_of_x(x);
-      // ...
+      const double Hp         = cosmo->Hp_of_x(x);
+      const double dHp        = cosmo->dHpdx_of_x(x);
+      const double ddHp       = cosmo->ddHpddx_of_x(x);
+      const double tau        = rec->tau_of_x(x);
+      const double dtau       = rec->dtaudx_of_x(x);
+      const double ddtau      = rec->ddtauddx_of_x(x);
+      const double g_tilde    = rec->g_tilde_of_x(x);
+      const double dg_tilde   = rec->dgdx_tilde_of_x(x);
+      const double ddg_tilde  = rec->ddgddx_tilde_of_x(x);
+
+      double Theta_0          = Theta_spline[0](x, k);
+      double Theta_1          = Theta_spline[1](x, k);
+      double dTheta_1         = Theta_spline[1].deriv_x(x, k);
+      //double Theta_3          = Theta_spline[3](x, k);
+      //double dTheta_3         = Theta_spline[3].deriv_x(x, k);
+      double PI               = Theta_spline[2](x, k);
+      double dPI              = Theta_spline[2].deriv_x(x, k);
+      double ddPI             = Theta_spline[2].deriv_xx(x, k);
+      double Psi              = Psi_spline(x, k);
+      double Phi              = Phi_spline(x, k);
+      double dPsi             = Psi_spline.deriv_x(x, k);
+      double dPhi             = Phi_spline.deriv_x(x, k);
+      double v_b              = v_b_spline(x, k);
+      double dv_b             = v_b_spline.deriv_x(x, k);
+      
+      //double ddPI = 2.*k/(5.*Hp)*(-dHp/Hp*Theta_1 + dTheta_1) + 3./10.*(ddtau*PI + dtau*dPI) 
+      //            - 3.*k/(5.*Hp)*(-dHp/Hp*Theta_3 + dTheta_3);
+      double dHpgv = (dHp*g_tilde*v_b+Hp*dg_tilde*v_b+Hp*g_tilde*dv_b);
+      double dHdHgP = g_tilde*PI*(dHp*dHp+ddHp*Hp) + 3.*Hp*dHp*(dg_tilde*PI+g_tilde*dPI)
+                    + Hp*Hp*(ddg_tilde*PI + 2.*dg_tilde*dPI+g_tilde*ddPI);
       // ...
 
       // Temperatur source
-      ST_array[index] = 0.0;
+      //ST_array[index] = 0.0;
+      ST_array[index] = g_tilde * (Theta_0+Psi+1./4.*PI)+exp(-tau)*(dPsi-dPhi)-1./(c*k)*dHpgv
+                      + 3./(4.*c*c*k*k)*dHdHgP;
 
       // Polarization source
-      if(Constants.polarization){
-        SE_array[index] = 0.0;
-      }
+      //if(Constants.polarization){
+      //  SE_array[index] = 0.0;
+      //}
     }
   }
 
   // Spline the source functions
   ST_spline.create (x_array, k_array, ST_array, "Source_Temp_x_k");
-  if(Constants.polarization){
-    SE_spline.create (x_array, k_array, SE_array, "Source_Pol_x_k");
-  }
+  //if(Constants.polarization){
+  //  SE_spline.create (x_array, k_array, SE_array, "Source_Pol_x_k");
+  //}
 
   Utils::EndTiming("source");
 }
@@ -794,10 +811,11 @@ void Perturbations::output(const double k, const std::string filename) const{
     fp << get_delta_b(x,k)   << " ";
     fp << get_v_cdm(x,k)     << " ";
     fp << get_v_b(x,k)       << " ";
-    //fp << get_Source_T(x,k)  << " ";
-    //fp << get_Source_T(x,k) * Utils::j_ell(5,   arg)           << " ";
-    //fp << get_Source_T(x,k) * Utils::j_ell(50,  arg)           << " ";
-    //fp << get_Source_T(x,k) * Utils::j_ell(500, arg)           << " ";
+
+    fp << get_Source_T(x,k)  << " ";
+    fp << get_Source_T(x,k) * Utils::j_ell(5,   arg)           << " ";
+    fp << get_Source_T(x,k) * Utils::j_ell(50,  arg)           << " ";
+    fp << get_Source_T(x,k) * Utils::j_ell(500, arg)           << " ";
     fp << "\n";
   };
   std::for_each(x_array.begin(), x_array.end(), print_data);

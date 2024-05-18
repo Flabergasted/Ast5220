@@ -81,7 +81,6 @@ void RecombinationHistory::solve_number_density_electrons(){
       Vector Xe_ic = {Xeini};
       peebles_Xe_ode.solve(dXedx, x_peebles_array, Xe_ic);
       auto Xe_peebles = peebles_Xe_ode.get_data_by_component(0);
-      std::cout << "Xe_peebles = " << Xe_peebles[1] << "\n";
       Xe_arr[i] = Xe_peebles[1];
 
       const double a           = exp(x_array[i]);
