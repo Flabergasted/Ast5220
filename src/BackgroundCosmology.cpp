@@ -182,7 +182,6 @@ double BackgroundCosmology::get_OmegaK(double x) const{
     
 double BackgroundCosmology::get_luminosity_distance_of_x(double x) const{
   double exp_x = std::exp(x);
-  //double Omega_k = get_OmegaK(x);
   double chi = get_comoving_distance_of_x(x); 
   double OmegaK_variable = std::sqrt(std::abs(OmegaK))*H0*chi/Constants.c;
   if(OmegaK < 0)
@@ -195,7 +194,6 @@ double BackgroundCosmology::get_luminosity_distance_of_x(double x) const{
 
 double BackgroundCosmology::get_angular_diameter_distance_of_x(double x) const{
   double exp_x = std::exp(x);
-  //double Omega_k = get_OmegaK(x);
   double chi = get_comoving_distance_of_x(x); 
   double OmegaK_variable = std::sqrt(std::abs(OmegaK))*H0*chi/Constants.c;
   if(OmegaK < 0)
@@ -256,6 +254,10 @@ void BackgroundCosmology::info() const{
   std::cout << "t_MDE_eq     " << t_of_x(-0.255)/Gyr << " Gyr \n";
   std::cout << "t_accelerate " << t_of_x(-0.485)/Gyr << " Gyr \n";
   std::cout << "t_aou        " << t_of_x(0)/Gyr   << " Gyr \n";
+  std::cout << "eta_RM_eq      " << eta_of_x(-8.132)/(Gyr*Constants.c) << " Gyr \n";
+  std::cout << "eta_MDE_eq     " << eta_of_x(-0.255)/(Gyr*Constants.c) << " Gyr \n";
+  std::cout << "eta_accelerate " << eta_of_x(-0.485)/(Gyr*Constants.c) << " Gyr \n";
+  std::cout << "eta_aou        " << eta_of_x(0)/(Gyr*Constants.c)   << " Gyr \n";
   std::cout << std::endl;
 } 
 

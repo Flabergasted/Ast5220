@@ -32,11 +32,6 @@ void Perturbations::solve(){
 void Perturbations::integrate_perturbations(){
   Utils::StartTiming("integrateperturbation");
 
-  //===================================================================
-  // TODO: Set up the k-array for the k's we are going to integrate over
-  // Start at k_min end at k_max with n_k points with either a
-  // quadratic or a logarithmic spacing
-  //===================================================================
   const double OmegaR  = cosmo->get_OmegaR();
   Vector k_array(n_k);
   Vector x_arr = Utils::linspace(x_start, x_end, n_x);
@@ -48,7 +43,6 @@ void Perturbations::integrate_perturbations(){
   }
 
   // Allocate the vectors for each of the values we want to spline.
-  //Vector2D ;
   Vector2D delta_cdm_arr(n_x,Vector(n_k, 0.0));
   Vector2D delta_b_arr(n_x,Vector(n_k, 0.0));
   Vector2D v_cdm_arr(n_x,Vector(n_k, 0.0));
@@ -58,8 +52,6 @@ void Perturbations::integrate_perturbations(){
   Vector2D Theta_0_arr(n_x,Vector(n_k, 0.0));
   Vector2D Theta_1_arr(n_x,Vector(n_k, 0.0));
   Vector2D Theta_2_arr(n_x,Vector(n_k, 0.0));
-
-  Vector2D Theta_3_arr(n_x,Vector(n_k, 0.0));
 
   // Loop over all wavenumbers
   for(int ik = 0; ik < n_k; ik++){
@@ -79,13 +71,6 @@ void Perturbations::integrate_perturbations(){
     Vector x_arr_tight = Utils::linspace(x_start, x_arr[x_low], x_low);
     Vector x_arr_full = Utils::linspace(x_arr[x_low],x_end, n_x-x_low);
 
-    //===================================================================
-    // TODO: Tight coupling integration
-    // Remember to implement the routines:
-    // set_ic : The IC at the start
-    // rhs_tight_coupling_ode : The dydx for our coupled ODE system
-    //===================================================================
-
     // Set up initial conditions in the tight coupling regime
     auto y_tight_coupling_ini = set_ic(x_start, k);
 
@@ -95,20 +80,12 @@ void Perturbations::integrate_perturbations(){
     };
 
     // Integrate from x_start -> x_end_tight
-    // ...
     ODESolver ode;
     Vector y_tight_ic {y_tight_coupling_ini};
     ode.solve(dydx_tight_coupling, x_arr_tight, y_tight_ic);
     auto y_tight = ode.get_data();
     auto y_tight_coupling = ode.get_final_data();
 
-    //====i===============================================================
-    // TODO: Full equation integration
-    // Remember to implement the routines:
-    // set_ic_after_tight_coupling : The IC after tight coupling ends
-    // rhs_full_ode : The dydx for our coupled ODE system
-    //===================================================================
-    
     // Set up initial conditions (y_tight_coupling is the solution at the end of tight coupling)
     auto y_full_ini = set_ic_after_tight_coupling(y_tight_coupling, x_end_tight, k);
     // The full ODE system
@@ -117,7 +94,6 @@ void Perturbations::integrate_perturbations(){
     };
 
     // Integrate from x_end_tight -> x_end
-    // ...
     Vector y_full_ic {y_full_ini};
     ode.solve(dydx_full, x_arr_full, y_full_ic);
     auto y_full = ode.get_data();
@@ -127,9 +103,13 @@ void Perturbations::integrate_perturbations(){
       if (ix < x_low){
         double x = x_arr_tight[ix];
         double a = exp(x);
+        // get the values of y for each x
         auto y = y_tight[ix];
+        //============================================================
+        // fetch the relevant y-components and solve analytically
+        // for the components with no solution in TC, besides their IC
+        //============================================================
         delta_cdm_arr[ix][ik] = y[0];
-
         delta_b_arr[ix][ik]   = y[1];
         v_cdm_arr[ix][ik]     = y[2];
         v_b_arr[ix][ik]       = y[3];
@@ -142,7 +122,9 @@ void Perturbations::integrate_perturbations(){
                                 /(std::pow(Constants.c*k*a,2.))
                                 *(OmegaR*Theta_2_arr[ix][ik]);                      
       }
+      // Switch to full solution
       else {
+        // move the starting index of x back to 0, to stay within the array bounds.
         double a = exp(x_arr_full[ix-x_low]);
         auto y = y_full[ix-x_low];
         delta_cdm_arr[ix][ik] = y[0];
@@ -161,24 +143,19 @@ void Perturbations::integrate_perturbations(){
   }
   Utils::EndTiming("integrateperturbation");
 
-  //=============================================================================
-  // TODO: Make all splines needed: Theta0,Theta1,Theta2,Phi,Psi,...
-  //=============================================================================
+  // Spline the results
   delta_cdm_spline.create(x_arr,k_array,delta_cdm_arr);
   delta_b_spline.create(x_arr,k_array,delta_b_arr);
   v_cdm_spline.create(x_arr,k_array,v_cdm_arr);
   v_b_spline.create(x_arr,k_array,v_b_arr);
   Phi_spline.create(x_arr,k_array,Phi_arr);
   Psi_spline.create(x_arr,k_array, Psi_arr);
-  Spline2D Theta_0_spline;
+
   Theta_0_spline.create(x_arr,k_array,Theta_0_arr);
-  Spline2D Theta_1_spline;
   Theta_1_spline.create(x_arr,k_array,Theta_1_arr);
-  Spline2D Theta_2_spline;
   Theta_2_spline.create(x_arr,k_array,Theta_2_arr);
   Theta_spline = {Theta_0_spline, Theta_1_spline, Theta_2_spline};
   Pi_spline.create(x_arr,k_array,Theta_2_arr);
-  // ...
 }
 
 //====================================================
@@ -212,25 +189,11 @@ Vector Perturbations::set_ic(const double x, const double k) const{
   double *Theta        = &y_tc[Constants.ind_start_theta_tc];
   double *Nu           = &y_tc[Constants.ind_start_nu_tc];
 
-  //=============================================================================
-  // TODO: Set the initial conditions in the tight coupling regime
-  //=============================================================================
-  // ...
-  // ...
+  // Gather the neccesary quantities from prevous milestones
   const double c            = Constants.c;
   const double Hp_of_x      = cosmo->Hp_of_x(x);
-  //const double dHp_of_x     = cosmo->dHpdx_of_x(x);
-  //const double H0           = cosmo->get_H0();
-  //const double OmegaCDM     = cosmo->get_OmegaCDM();
-  //const double OmegaB       = cosmo->get_OmegaB();
-  //const double OmegaR  = cosmo->get_OmegaR();
-  //const double dtaudx       = rec->dtaudx_of_x(x);
-  //const double ddtauddx     = rec->ddtauddx_of_x(x);
-  //double a = exp(x);
-
+  
   // SET: Scalar quantities (Gravitational potential, baryons and CDM)
-  // ...
-  // ...
   double Psi = -2./3.;
   Phi = -Psi;
   delta_b = -3./2.*Psi;
@@ -239,14 +202,11 @@ Vector Perturbations::set_ic(const double x, const double k) const{
   v_cdm = v_b;
 
   // SET: Photon temperature perturbations (Theta_ell)
-  // ...
   Theta[0] = -1./2.*Psi;
   Theta[1] = c*k/(6*Hp_of_x)*Psi;
-  //Theta[2] = -20.*c*k/(45.*Hp_of_x*dtaudx)*Theta[1];
 
-  // SET: Neutrino perturbations (N_ell)
+  // SET: Neutrino perturbations (N_ell), not done in this code
   if(neutrinos){
-    // ...
     // ...
   }
 
@@ -303,12 +263,6 @@ Vector Perturbations::set_ic_after_tight_coupling(
   double *Theta_p         = &y[Constants.ind_start_thetap_tc];
   double *Nu              = &y[Constants.ind_start_nu_tc];
 
-  //=============================================================================
-  // TODO: fill in the initial conditions for the full equation system below
-  // NB: remember that we have different number of multipoles in the two
-  // regimes so be careful when assigning from the tc array
-  //=============================================================================
-  // ...
   const double c            = Constants.c;
   const double Hp_of_x      = cosmo->Hp_of_x(x);
   const double dHp_of_x     = cosmo->dHpdx_of_x(x);
@@ -321,34 +275,29 @@ Vector Perturbations::set_ic_after_tight_coupling(
   double a = exp(x);
 
   // SET: Scalar quantities (Gravitational potental, baryons and CDM)
-  // ...
-  //double Psi = -2./3.; //?
-  Phi = Phi_tc; //-Psi;
-  delta_b = delta_b_tc; //-3./2.*Psi;
-  delta_cdm = delta_cdm_tc; //delta_b;
-  v_b = v_b_tc; //-c*k/(2.*Hp_of_x)*Psi;
-  v_cdm = v_cdm_tc; //v_b;
+  Phi = Phi_tc; 
+  delta_b = delta_b_tc; 
+  delta_cdm = delta_cdm_tc; 
+  v_b = v_b_tc; 
+  v_cdm = v_cdm_tc; 
 
   // SET: Photon temperature perturbations (Theta_ell)
-  // ...
   int l_max = n_ell_theta-1;
-  Theta[0] = Theta_tc[0];//-1./2.*Psi;
-  Theta[1] = Theta_tc[1];//c*k/(6*Hp_of_x)*Psi;
+  Theta[0] = Theta_tc[0];
+  Theta[1] = Theta_tc[1];
   Theta[2] = -20.*c*k/(45.*Hp_of_x*dtaudx)*Theta[1];
    
   for (int l = 3; l <= l_max; l++){
     Theta[l] = -l/(2*l + 1.)*c*k/(Hp_of_x*dtaudx)*Theta[l-1];
   }
 
-  // SET: Photon polarization perturbations (Theta_p_ell)
+  // SET: Photon polarization perturbations (Theta_p_ell), not considered
   if(polarization){
-    // ...
     // ...
   }
 
-  // SET: Neutrino perturbations (N_ell)
+  // SET: Neutrino perturbations (N_ell), not considered
   if(neutrinos){
-    // ...
     // ...
   }
 
@@ -361,12 +310,12 @@ Vector Perturbations::set_ic_after_tight_coupling(
 
 double Perturbations::get_tight_coupling_time(const double k) const{
   double x_tight_coupling_end = 0.0;
+  
+  //=============================================================================
+  // Compute and return x for when tight coupling ends
+  // using the three conditions in Callin
+  //=============================================================================
 
-  //=============================================================================
-  // TODO: compute and return x for when tight coupling ends
-  // Remember all the three conditions in Callin
-  //=============================================================================
-  // ...
   Vector x_array = Utils::linspace(x_start, x_end, n_x);
   double Hp_of_x;
   double dtaudx;
@@ -392,11 +341,6 @@ double Perturbations::get_tight_coupling_time(const double k) const{
 void Perturbations::compute_source_functions(){
   Utils::StartTiming("source");
 
-  //=============================================================================
-  // TODO: Make the x and k arrays to evaluate over and use to make the splines
-  //=============================================================================
-  //Vector k_array;
-  //Vector x_array;
   Vector k_array(n_k);
   Vector x_array = Utils::linspace(x_start, x_end, n_x);
   const double c = Constants.c;
@@ -421,10 +365,8 @@ void Perturbations::compute_source_functions(){
       // in a 1D array for the 2D spline routine source(ix,ik) -> S_array[ix + nx * ik]
       const int index = ix + n_x * ik;
 
-      //=============================================================================
-      // TODO: Compute the source functions
-      //=============================================================================
-      // Fetch all the things we need...
+      // Fetch all the things we need
+      // From previous milestones
       const double Hp         = cosmo->Hp_of_x(x);
       const double dHp        = cosmo->dHpdx_of_x(x);
       const double ddHp       = cosmo->ddHpddx_of_x(x);
@@ -434,12 +376,10 @@ void Perturbations::compute_source_functions(){
       const double g_tilde    = rec->g_tilde_of_x(x);
       const double dg_tilde   = rec->dgdx_tilde_of_x(x);
       const double ddg_tilde  = rec->ddgddx_tilde_of_x(x);
-
+      // Splines from this milestone.
       double Theta_0          = Theta_spline[0](x, k);
       double Theta_1          = Theta_spline[1](x, k);
       double dTheta_1         = Theta_spline[1].deriv_x(x, k);
-      //double Theta_3          = Theta_spline[3](x, k);
-      //double dTheta_3         = Theta_spline[3].deriv_x(x, k);
       double PI               = Theta_spline[2](x, k);
       double dPI              = Theta_spline[2].deriv_x(x, k);
       double ddPI             = Theta_spline[2].deriv_xx(x, k);
@@ -449,16 +389,11 @@ void Perturbations::compute_source_functions(){
       double dPhi             = Phi_spline.deriv_x(x, k);
       double v_b              = v_b_spline(x, k);
       double dv_b             = v_b_spline.deriv_x(x, k);
-      
-      //double ddPI = 2.*k/(5.*Hp)*(-dHp/Hp*Theta_1 + dTheta_1) + 3./10.*(ddtau*PI + dtau*dPI) 
-      //            - 3.*k/(5.*Hp)*(-dHp/Hp*Theta_3 + dTheta_3);
+      // Compute the derivatives for better readability
       double dHpgv = (dHp*g_tilde*v_b+Hp*dg_tilde*v_b+Hp*g_tilde*dv_b);
       double dHdHgP = g_tilde*PI*(dHp*dHp+ddHp*Hp) + 3.*Hp*dHp*(dg_tilde*PI+g_tilde*dPI)
                     + Hp*Hp*(ddg_tilde*PI + 2.*dg_tilde*dPI+g_tilde*ddPI);
-      // ...
-
-      // Temperatur source
-      //ST_array[index] = 0.0;
+      // Compute the source function.
       ST_array[index] = g_tilde * (Theta_0+Psi+1./4.*PI)+exp(-tau)*(dPsi-dPhi)-1./(c*k)*dHpgv
                       + 3./(4.*c*c*k*k)*dHdHgP;
 
@@ -471,6 +406,7 @@ void Perturbations::compute_source_functions(){
 
   // Spline the source functions
   ST_spline.create (x_array, k_array, ST_array, "Source_Temp_x_k");
+
   //if(Constants.polarization){
   //  SE_spline.create (x_array, k_array, SE_array, "Source_Pol_x_k");
   //}
@@ -515,10 +451,6 @@ int Perturbations::rhs_tight_coupling_ode(double x, double k, const double *y, d
   double *dThetadx        = &dydx[Constants.ind_start_theta_tc];
   double *dNudx           = &dydx[Constants.ind_start_nu_tc];
 
-  //=============================================================================
-  // TODO: fill in the expressions for all the derivatives
-  //=============================================================================
-
   const double c            = Constants.c;
   const double Hp_of_x      = cosmo->Hp_of_x(x);
   const double dHp_of_x     = cosmo->dHpdx_of_x(x);
@@ -553,8 +485,6 @@ int Perturbations::rhs_tight_coupling_ode(double x, double k, const double *y, d
 
   // SET: Neutrino mutlipoles (Nu_ell)
   if(neutrinos){
-    // ...
-    // ...
     // ...
   }
 
@@ -607,69 +537,38 @@ int Perturbations::rhs_full_ode(double x, double k, const double *y, double *dyd
   const double OmegaB       = cosmo->get_OmegaB();
   const double OmegaR       = cosmo->get_OmegaR();
   const double eta          = cosmo->eta_of_x(x);
-  // ...
 
   // Recombination variables
   const double dtaudx       = rec->dtaudx_of_x(x);
-
-  //=============================================================================
-  // TODO: fill in the expressions for all the derivatives
-  //=============================================================================
 
   const double c            = Constants.c;
   double a = exp(x);
 
   // SET: Scalar quantities (Phi, delta, v, ...)
-  // ...
   double Psi = -Phi - 12.*H0*H0/(c*c*k*k*a*a)*(OmegaR*Theta[2]);
-  //std::cout << "-Phi " << -Phi << "\n";
   dPhidx = Psi - c*c*k*k/(3.*Hp_of_x*Hp_of_x)*Phi + H0*H0/(2.*Hp_of_x*Hp_of_x)
                 *(OmegaCDM/a*delta_cdm + OmegaB/a*delta_b + 4.*OmegaR/(a*a)*Theta[0]);
 
   // SET: Photon multipoles (Theta_ell)
-  // ...
-  //std::cout << "Theta 0 " << Theta[0] << "\n";
-  //std::cout << "Theta 1 " << Theta[1] << "\n";
-  //std::cout << "Theta 2 " << Theta[2] << "\n";
   double PI = Theta[2];
   int l_max = n_ell_theta-1;
-  //std::cout << "" << << "\n";
   dThetadx[l_max] = c*k/Hp_of_x*Theta[l_max-1] 
                         - c*(l_max+1.)/(Hp_of_x*eta)*Theta[l_max]
                         + dtaudx*Theta[l_max];
-  //std::cout << "" << << "\n";
-  //*
   for (int l = 3; l < l_max; l++){
     dThetadx[l] = l*c*k/((2.*l+1.)*Hp_of_x)*Theta[l-1] 
                 - (l+1.)*c*k/((2.*l+1.)*Hp_of_x)*Theta[l+1]
                 + dtaudx*(Theta[l]);
-    //std::cout << "" << << "\n";
   }
-  //*/
-  //std::cout << "" << << "\n";
   dThetadx[2] = 2.*c*k/((2.*2.+1.)*Hp_of_x)*Theta[2-1] 
                 - (2.+1.)*c*k/((2.*2.+1.)*Hp_of_x)*Theta[2+1] 
                 + dtaudx*(Theta[2]-1./10.*PI);
-  //std::cout << "" << << "\n";
-  /*
-  for (int l = 2; l < l_max; l++){
-    dThetadx[l] = l*c*k/((2.*l+1.)*Hp_of_x)*Theta[l-1] 
-                - (l+1.)*c*k/((2.*l+1.)*Hp_of_x)*Theta[l+1]
-                + dtaudx*(Theta[l] - 1./10.*PI*(l == 2));
-  }
-  */
   dThetadx[1] = k*c/(3.*Hp_of_x)*Theta[0] - 2.*c*k/(3.*Hp_of_x)*Theta[2] 
               + c*k/(3.*Hp_of_x)*Psi + dtaudx*(Theta[1]+1./3.*v_b);
-  //std::cout << "" << << "\n";
   dThetadx[0] = -k*c/Hp_of_x*Theta[1] - dPhidx;
   // Metric perturbations
   double R = 4.*OmegaR/(3.*OmegaB*a);
-  //std::cout << "" << << "\n";
-
   // CDM and baryons
-  
-  //These look ok
-  //std::cout << "" << << "\n";
   dv_bdx = - v_b - c*k/Hp_of_x*Psi + dtaudx*R*(3.*Theta[1]+v_b);
   ddelta_bdx = c*k/Hp_of_x*v_b - 3.*dPhidx;
   dv_cdmdx = - v_cdm - c*k/Hp_of_x*Psi;
@@ -678,14 +577,10 @@ int Perturbations::rhs_full_ode(double x, double k, const double *y, double *dyd
   // SET: Photon polarization multipoles (Theta_p_ell)
   if(polarization){
     // ...
-    // ...
-    // ...
   }
 
   // SET: Neutrino mutlipoles (Nu_ell)
   if(neutrinos){
-    // ...
-    // ...
     // ...
   }
 

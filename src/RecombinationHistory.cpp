@@ -29,9 +29,6 @@ void RecombinationHistory::solve(){
 void RecombinationHistory::solve_number_density_electrons(){
   Utils::StartTiming("Xe");
   
-  //=============================================================================
-  // TODO: Set up x-array and make arrays to store X_e(x) and n_e(x) on
-  //=============================================================================
   Vector x_array(npts_rec_arrays);
   Vector Xe_arr(npts_rec_arrays);
   Vector ne_arr(npts_rec_arrays);
@@ -46,11 +43,6 @@ void RecombinationHistory::solve_number_density_electrons(){
   // Calculate recombination history
   bool saha_regime = true;
   for(int i = 0; i < npts_rec_arrays; i++){
-
-    //==============================================================
-    // TODO: Get X_e from solving the Saha equation so
-    // implement the function electron_fraction_from_saha_equation
-    //==============================================================
 
     auto Xe_ne_data = electron_fraction_from_saha_equation(x_array[i]);
 
